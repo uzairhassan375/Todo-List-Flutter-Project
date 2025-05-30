@@ -35,7 +35,7 @@ class _SharedTodoScreenState extends State<SharedTodoScreen> with SingleTickerPr
     _groupNameController.clear();
     Navigator.pop(context);
   }
-
+// method
   void openCreateGroupDialog() {
     showDialog(
       context: context,

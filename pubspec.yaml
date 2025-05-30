@@ -1,0 +1,54 @@
+name: taskify
+description: A Flutter app for personal and group task management.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  geolocator: ^10.0.1 # 📍 for location reminders
+  #flutter_local_notifications: ^14.1.1 # 🔔 (optional: for sending local task reminders) 
+  provider: ^6.0.5 # (optional: if you want to manage state cleanly later)
+  firebase_core: ^3.13.0
+  cloud_firestore: ^5.6.7
+  firebase_auth: ^5.5.3
+  firebase_storage: ^12.4.5
+  image_picker: ^1.1.2
+  flutter_image_compress: ^2.1.0
+  path_provider: ^2.1.2
+  path: ^1.9.0
+  date_picker_timeline: ^1.2.3 # or the latest version
+  table_calendar: ^3.0.9
+  flutter_launcher_icons: ^0.14.3
+
+
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+
+flutter_icons:  
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/logo.png
+    - assets/images/onboarding1.png
+    - assets/images/onboarding2.png
+    - assets/images/onboarding3.png
+    - assets/images/tasks.png
+    - assets/images/profile.png
+    - assets/images/dp.png
+

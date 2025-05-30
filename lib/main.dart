@@ -9,7 +9,7 @@ import 'registration/register_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart'; 
 import 'screens/profile_screen.dart';
-import 'screens/shared_todo.dart';
+import 'screens/shared_todo/shared_todo.dart';
 import 'screens/focus_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
         '/registerscreen': (context) => const RegisterScreen(),
         '/homescreen': (context) => const HomeScreen(), 
         '/profilescreen': (context) => const ProfileScreen(),
-        '/sharedtodo': (context) => const SharedTodoScreen(),
+        '/sharedtodo': (context) =>  SharedTodoScreen(),
          '/focus': (context) => const FocusScreen(),
       },
     );

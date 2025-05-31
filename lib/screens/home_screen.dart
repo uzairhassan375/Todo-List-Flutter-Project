@@ -173,30 +173,43 @@ Future<String?> _showCategoryDialog() async {
                   ),
                 ),
 
-Theme(
-  data: Theme.of(context).copyWith(
-    popupMenuTheme: PopupMenuThemeData(
-      color: Theme.of(context).snackBarTheme.backgroundColor ?? Colors.grey[800], // Popup background color
-      elevation: 8, // Shadow
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14), // Rounded corners
-      ),
+const SizedBox(height: 14),
+
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  children: [
+    ChoiceChip(
+      label: const Text('DateTime'),
+      selected: _sortBy == 'datetime',
+      onSelected: (_) {
+        setState(() {
+          _sortBy = 'datetime';
+          _categoryFilter = null;
+        });
+      },
+      selectedColor: Colors.deepPurple,
+      backgroundColor: Colors.grey, // gray when not selected
+      checkmarkColor: Colors.white,
+      labelStyle: const TextStyle(color: Colors.white),
     ),
-  ),
-  child: PopupMenuButton<String>(
-    icon: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: const [
-        Icon(Icons.filter_alt_outlined, color: Colors.white),
-        SizedBox(width: 6),
-        Text(
-          'Filter',
-          style: TextStyle(color: Colors.white, fontSize: 16),
-        ),
-      ],
+    ChoiceChip(
+      label: const Text('Priority'),
+      selected: _sortBy == 'priority',
+      onSelected: (_) {
+        setState(() {
+          _sortBy = 'priority';
+          _categoryFilter = null;
+        });
+      },
+      selectedColor: Colors.deepPurple,
+      backgroundColor: Colors.grey, // gray when not selected
+      checkmarkColor: Colors.white,
+      labelStyle: const TextStyle(color: Colors.white),
     ),
-    onSelected: (value) async {
-      if (value == 'category') {
+    ChoiceChip(
+      label: const Text('Category'),
+      selected: _sortBy == 'category',
+      onSelected: (_) async {
         final selectedCategory = await _showCategoryDialog();
         if (selectedCategory != null) {
           setState(() {
@@ -204,38 +217,17 @@ Theme(
             _categoryFilter = selectedCategory;
           });
         }
-      } else {
-        setState(() {
-          _sortBy = value;
-          _categoryFilter = null;
-        });
-      }
-    },
-    itemBuilder: (context) => [
-      const PopupMenuItem(
-        value: 'datetime',
-        child: Text(
-          'Sort by DateTime',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-      const PopupMenuItem(
-        value: 'priority',
-        child: Text(
-          'Sort by Priority',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-      const PopupMenuItem(
-        value: 'category',
-        child: Text(
-          'Sort by Category',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-    ],
-  ),
+      },
+      selectedColor: Colors.deepPurple,
+      backgroundColor: Colors.grey, // gray when not selected
+      checkmarkColor: Colors.white,
+      labelStyle: const TextStyle(color: Colors.white),
+    ),
+  ],
 ),
+
+
+
 
 
                 // 🔄 Task Stream

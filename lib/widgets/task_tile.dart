@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:taskify/screens/add_task_sheet.dart';
+import 'package:taskify/widgets/dialologBox.dart';
 
 class TaskTile extends StatelessWidget {
   final DocumentSnapshot doc;
@@ -131,55 +132,42 @@ class TaskTile extends StatelessWidget {
                     final taskData = doc.data() as Map<String, dynamic>;
                     final taskId = doc.id;
 
-                    final shouldDelete = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text("Delete Task"),
-                        content: const Text(
-                            "Are you sure you want to delete this task?"),
-                        actions: [
-                          TextButton(
-                            child: const Text("Cancel"),
-                            onPressed: () => Navigator.of(context).pop(false),
-                          ),
-                          TextButton(
-                            child: const Text("Delete",
-                                style: TextStyle(color: Colors.red)),
-                            onPressed: () => Navigator.of(context).pop(true),
-                          ),
-                        ],
-                      ),
-                    );
+                   final shouldDelete = await showDialog<bool>(
+  context: context,
+  builder: (context) => BlackConfirmDialog(
+    title: "Delete Task",
+    content: "Are you sure you want to delete this task?",
+    confirmText: "Delete",
+    confirmColor: Colors.red,
+  ),
+);
 
-                    if (shouldDelete == true) {
-                      await FirebaseFirestore.instance
-                          .collection('tasks')
-                          .doc(taskId)
-                          .delete();
+if (shouldDelete == true) {
+  await FirebaseFirestore.instance.collection('tasks').doc(taskId).delete();
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          
-                          content: const Text(
-                            'Task deleted',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: Colors.grey[900],
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.fixed,
-                          action: SnackBarAction(
-                            label: 'UNDO',
-                            textColor: Colors.deepPurpleAccent,
-                            onPressed: () async {
-                              await FirebaseFirestore.instance
-                                  .collection('tasks')
-                                  .doc(taskId)
-                                  .set(taskData);
-                            },
-                          ),
-                        ),
-                      );
-                    }
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: const Text(
+        'Task deleted',
+        style: TextStyle(color: Colors.white),
+      ),
+      backgroundColor: Colors.grey[900],
+      duration: const Duration(seconds: 2),
+      behavior: SnackBarBehavior.fixed,
+      action: SnackBarAction(
+        label: 'UNDO',
+        textColor: Colors.deepPurpleAccent,
+        onPressed: () async {
+          await FirebaseFirestore.instance
+              .collection('tasks')
+              .doc(taskId)
+              .set(taskData);
+        },
+      ),
+    ),
+  );
+}
+
                   },
                   child: Container(
                     padding: const EdgeInsets.all(6),

@@ -29,32 +29,48 @@ String? _categoryFilter;
     _loadProfileImage();
   }
 Future<String?> _showCategoryDialog() async {
-  String selectedCategory = '';
+  final controller = TextEditingController();
   return showDialog<String>(
     context: context,
     builder: (context) {
-      final controller = TextEditingController();
       return AlertDialog(
-        title: const Text('Enter Category'),
+        backgroundColor: const Color(0xFF121212), // Black background
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Enter Category',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'e.g. Work, Personal'),
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'e.g. Work, Personal',
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white38),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.deepPurpleAccent),
+            ),
+          ),
+          cursorColor: Colors.deepPurpleAccent,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Apply'),
+            child: const Text('Apply', style: TextStyle(color: Colors.deepPurpleAccent)),
           ),
         ],
       );
     },
   );
 }
+
 
 
 // ignore_for_file: unused_local_variable
@@ -161,168 +177,152 @@ Future<String?> _showCategoryDialog() async {
                   ],
                 ),
 
-                const SizedBox(height: 6),
 
-                Center(
-                  child: Text(
-                    showCompleted
-                        ? 'Swipe left to mark as incomplete'
-                        : 'Swipe right to mark as completed',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white60, fontSize: 14),
-                  ),
-                ),
+StreamBuilder<QuerySnapshot>(
+  stream: FirebaseFirestore.instance
+      .collection('tasks')
+      .orderBy('createdAt', descending: true)
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (_uid == null) {
+      return const Center(
+        child: Text("User not logged in", style: TextStyle(color: Colors.white)),
+      );
+    }
 
-const SizedBox(height: 12),
+    if (!snapshot.hasData) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-Row(
-  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  children: [
-    ChoiceChip(
-      label: const Text('DateTime'),
-      selected: _sortBy == 'datetime',
-      onSelected: (_) {
-        setState(() {
-          _sortBy = 'datetime';
-          _categoryFilter = null;
-        });
-      },
-      selectedColor: Colors.deepPurple,
-      backgroundColor: Colors.grey, // gray when not selected
-      checkmarkColor: Colors.white,
-      labelStyle: const TextStyle(color: Colors.white),
-    ),
-    ChoiceChip(
-      label: const Text('Priority'),
-      selected: _sortBy == 'priority',
-      onSelected: (_) {
-        setState(() {
-          _sortBy = 'priority';
-          _categoryFilter = null;
-        });
-      },
-      selectedColor: Colors.deepPurple,
-      backgroundColor: Colors.grey, // gray when not selected
-      checkmarkColor: Colors.white,
-      labelStyle: const TextStyle(color: Colors.white),
-    ),
-    ChoiceChip(
-      label: const Text('Category'),
-      selected: _sortBy == 'category',
-      onSelected: (_) async {
-        final selectedCategory = await _showCategoryDialog();
-        if (selectedCategory != null) {
-          setState(() {
-            _sortBy = 'category';
-            _categoryFilter = selectedCategory;
-          });
-        }
-      },
-      selectedColor: Colors.deepPurple,
-      backgroundColor: Colors.grey, // gray when not selected
-      checkmarkColor: Colors.white,
-      labelStyle: const TextStyle(color: Colors.white),
-    ),
-  ],
+    final rawTasks = snapshot.data!.docs.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return data['uid'] == _uid && data['completed'] == showCompleted;
+    }).toList();
+
+    rawTasks.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
+      switch (_sortBy) {
+        case 'priority':
+          return (bData['priority'] ?? 0).compareTo(aData['priority'] ?? 0);
+        case 'category':
+          if (_categoryFilter == null) return 0;
+          final aCat = aData['category'] == _categoryFilter ? 0 : 1;
+          final bCat = bData['category'] == _categoryFilter ? 0 : 1;
+          return aCat.compareTo(bCat);
+        case 'datetime':
+        default:
+          final aTime = (aData['datetime'] as Timestamp?)?.toDate() ?? DateTime(2000);
+          final bTime = (bData['datetime'] as Timestamp?)?.toDate() ?? DateTime(2000);
+          return bTime.compareTo(aTime);
+      }
+    });
+
+    final tasks = rawTasks;
+
+    if (tasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset('assets/images/tasks.png', height: 200),
+            const SizedBox(height: 24),
+            const Text(
+              'What do you want to do today?',
+              style: TextStyle(fontSize: 18, color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tap + to add your tasks',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ✅ Show swipe instruction and sorting chips ONLY if tasks exist
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Center(
+          child: Text(
+            showCompleted
+                ? 'Swipe left to mark as incomplete'
+                : 'Swipe right to mark as completed',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white60, fontSize: 14),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            ChoiceChip(
+              label: const Text('DateTime'),
+              selected: _sortBy == 'datetime',
+              onSelected: (_) {
+                setState(() {
+                  _sortBy = 'datetime';
+                  _categoryFilter = null;
+                });
+              },
+              selectedColor: Colors.deepPurple,
+              backgroundColor: Colors.grey,
+              checkmarkColor: Colors.white,
+              labelStyle: const TextStyle(color: Colors.white),
+            ),
+            ChoiceChip(
+              label: const Text('Priority'),
+              selected: _sortBy == 'priority',
+              onSelected: (_) {
+                setState(() {
+                  _sortBy = 'priority';
+                  _categoryFilter = null;
+                });
+              },
+              selectedColor: Colors.deepPurple,
+              backgroundColor: Colors.grey,
+              checkmarkColor: Colors.white,
+              labelStyle: const TextStyle(color: Colors.white),
+            ),
+            ChoiceChip(
+              label: const Text('Category'),
+              selected: _sortBy == 'category',
+              onSelected: (_) async {
+                final selectedCategory = await _showCategoryDialog();
+                if (selectedCategory != null) {
+                  setState(() {
+                    _sortBy = 'category';
+                    _categoryFilter = selectedCategory;
+                  });
+                }
+              },
+              selectedColor: Colors.deepPurple,
+              backgroundColor: Colors.grey,
+              checkmarkColor: Colors.white,
+              labelStyle: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: tasks.length,
+          itemBuilder: (context, index) {
+            final doc = tasks[index];
+            return TaskTile(doc: doc, showCompleted: showCompleted);
+          },
+        ),
+      ],
+    );
+  },
 ),
-const SizedBox(height: 8),
 
-
-
-
-
-                // 🔄 Task Stream
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('tasks')
-                      .orderBy('createdAt', descending: true)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (_uid == null) {
-                      return const Center(
-                        child: Text(
-                          "User not logged in",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      );
-                    }
-
-                    if (!snapshot.hasData) {
-                      return const Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    }
-
-                    final rawTasks = snapshot.data!.docs.where((doc) {
-  final data = doc.data() as Map<String, dynamic>;
-  return data['uid'] == _uid && data['completed'] == showCompleted;
-}).toList();
-
-rawTasks.sort((a, b) {
-  final aData = a.data() as Map<String, dynamic>;
-  final bData = b.data() as Map<String, dynamic>;
-
-  switch (_sortBy) {
-    case 'priority':
-      return (bData['priority'] ?? 0).compareTo(aData['priority'] ?? 0);
-    case 'category':
-      if (_categoryFilter == null) return 0;
-      final aCat = aData['category'] == _categoryFilter ? 0 : 1;
-      final bCat = bData['category'] == _categoryFilter ? 0 : 1;
-      return aCat.compareTo(bCat);
-    case 'datetime':
-    default:
-      final aTime = (aData['datetime'] as Timestamp?)?.toDate() ?? DateTime(2000);
-      final bTime = (bData['datetime'] as Timestamp?)?.toDate() ?? DateTime(2000);
-      return bTime.compareTo(aTime);
-
-  }
-});
-
-final tasks = rawTasks;
-                    
-
-                    if (tasks.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset('assets/images/tasks.png', height: 200),
-                            const SizedBox(height: 24),
-                            const Text(
-                              'What do you want to do today?',
-                              style:
-                                  TextStyle(fontSize: 18, color: Colors.white),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Tap + to add your tasks',
-                              style:
-                                  TextStyle(fontSize: 14, color: Colors.grey),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: tasks.length,
-                      itemBuilder: (context, index) {
-                        final doc = tasks[index];
-                        final task = doc.data() as Map<String, dynamic>;
-                        final timestamp = task['datetime'] as Timestamp?;
-                        final dateTime = timestamp?.toDate();
-                        final isCompleted = task['completed'] == true;
-
-                        return TaskTile(doc: doc, showCompleted: showCompleted);
-
-                      },
-                    );
-                  },
-                ),
               ],
             ),
           ),

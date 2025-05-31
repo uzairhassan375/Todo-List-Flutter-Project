@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -5,12 +6,14 @@ class SharedToDoListScreen extends StatefulWidget {
   final String groupId;
   final String groupName;
   final String currentUserId;
+  final String ownerEmail;
 
   const SharedToDoListScreen({
     super.key,
     required this.groupId,
     required this.groupName,
     required this.currentUserId,
+     required this.ownerEmail,
   });
 
   @override
@@ -69,6 +72,7 @@ class _SharedToDoListScreenState extends State<SharedToDoListScreen> {
         groupId: widget.groupId,
         members: members,
         canAddMembers: isOwner,
+        ownerId: ownerId ?? '',
       ),
     );
   }
@@ -279,12 +283,14 @@ class MembersSheet extends StatefulWidget {
   final String groupId;
   final List<dynamic> members;
   final bool canAddMembers;
+   final String ownerId; // New
 
   const MembersSheet({
     super.key,
     required this.groupId,
     required this.members,
     required this.canAddMembers,
+    required this.ownerId, // New
   });
 
   @override
@@ -292,6 +298,9 @@ class MembersSheet extends StatefulWidget {
 }
 
 class _MembersSheetState extends State<MembersSheet> {
+  Map<String, dynamic>? _ownerData;
+bool _ownerLoading = true;
+
   final TextEditingController _controller = TextEditingController();
   bool _isLoading = false;
   String? _error;
@@ -302,8 +311,49 @@ class _MembersSheetState extends State<MembersSheet> {
   void initState() {
     super.initState();
     _members = widget.members;
+     _loadOwnerData(); // New
   }
-  
+  Future<void> _loadOwnerData() async {
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.ownerId)
+        .get();
+    if (doc.exists) {
+      setState(() {
+        _ownerData = doc.data();
+        _ownerLoading = false;
+      });
+    } else {
+      setState(() {
+        _ownerLoading = false;
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _ownerLoading = false;
+    });
+  }
+}
+void _removeMember(String userId) async {
+  try {
+    await FirebaseFirestore.instance
+        .collection('groups')
+        .doc(widget.groupId)
+        .update({
+      'members': FieldValue.arrayRemove([userId]),
+    });
+
+    setState(() {
+      _members.remove(userId);
+    });
+  } catch (e) {
+    print('Error removing member: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to remove member')),
+    );
+  }
+}
 
   Future<void> _addMember() async {
     setState(() {
@@ -368,82 +418,106 @@ class _MembersSheetState extends State<MembersSheet> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        height: 450,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.canAddMembers ? 'Manage Members' : 'Group Members',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+@override
+Widget build(BuildContext context) {
+  return Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      height: 450,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.canAddMembers ? 'Manage Members' : 'Group Members',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+
+          if (widget.canAddMembers) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+                hintText: 'Enter user email',
+                errorText: _error,
+              ),
+              onSubmitted: (_) => _addMember(),
             ),
-            if (widget.canAddMembers) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _controller,
-                decoration: InputDecoration(
-                  hintText: 'Enter user email',
-                  errorText: _error,
-                ),
-                onSubmitted: (_) => _addMember(),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _addMember,
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Add Member'),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _addMember,
-                  child: _isLoading
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
-                      : const Text('Add Member'),
-                ),
-              ),
-              const Divider(height: 30),
-            ] else
-              const SizedBox(height: 20),
-            Expanded(
-              child: _members.isEmpty
-                  ? const Center(child: Text('No members found'))
-                  : FutureBuilder<QuerySnapshot>(
-                      future: FirebaseFirestore.instance
-                          .collection('users')
-                          .where(FieldPath.documentId, whereIn: _members)
-                          .get(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return const Center(child: Text('No members found'));
-                        }
-                        final users = snapshot.data!.docs;
-                        return ListView.builder(
-                          itemCount: users.length,
-                          itemBuilder: (context, index) {
-                            final user = users[index];
-                            final data = user.data()! as Map<String, dynamic>;
-                            return ListTile(
-                              leading: const Icon(Icons.person),
-                              title: Text(data['name'] ?? 'Unknown'),
-                              subtitle: Text(data['email'] ?? ''),
-                            );
-                          },
-                        );
-                      },
+            ),
+            const Divider(height: 30),
+          ] else
+            const SizedBox(height: 20),
+
+          // Group Owner Info
+          const Text('Group Owner', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          _ownerLoading
+              ? const CircularProgressIndicator()
+              : _ownerData == null
+                  ? const Text('Owner not found')
+                  : ListTile(
+                      leading: const Icon(Icons.star, color: Colors.orange),
+                      title: Text(_ownerData!['name'] ?? 'Unknown'),
+                      subtitle: Text(_ownerData!['email'] ?? ''),
                     ),
-            ),
-          ],
-        ),
+          const Divider(height: 30),
+
+          // Members List
+          Expanded(
+            child: _members.isEmpty
+                ? const Center(child: Text('No members found'))
+                : FutureBuilder<QuerySnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('users')
+                        .where(FieldPath.documentId, whereIn: _members)
+                        .get(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No members found'));
+                      }
+                      final users = snapshot.data!.docs;
+                      return ListView.builder(
+                        itemCount: users.length,
+                        itemBuilder: (context, index) {
+                          final user = users[index];
+                          final data = user.data()! as Map<String, dynamic>;
+                          final userId = user.id;
+
+                          return ListTile(
+                            leading: const Icon(Icons.person),
+                            title: Text(data['name'] ?? 'Unknown'),
+                            subtitle: Text(data['email'] ?? ''),
+                            trailing: (FirebaseAuth.instance.currentUser!.uid ==
+                                        widget.ownerId &&
+                                    userId != widget.ownerId)
+                                ? IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => _removeMember(userId),
+                                  )
+                                : null,
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+
 }

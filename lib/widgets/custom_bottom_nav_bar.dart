@@ -23,7 +23,12 @@ class CustomBottomNavBar extends StatelessWidget {
 
   Widget buildNavItem(BuildContext context, IconData icon, String label, String route) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, route),
+      onTap: () {
+        final currentRoute = ModalRoute.of(context)?.settings.name;
+        if (currentRoute != route) {
+          Navigator.pushNamed(context, route);
+        }
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

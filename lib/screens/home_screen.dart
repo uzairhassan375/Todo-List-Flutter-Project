@@ -161,7 +161,7 @@ Future<String?> _showCategoryDialog() async {
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
 
                 Center(
                   child: Text(
@@ -173,7 +173,7 @@ Future<String?> _showCategoryDialog() async {
                   ),
                 ),
 
-const SizedBox(height: 14),
+const SizedBox(height: 12),
 
 Row(
   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -225,6 +225,7 @@ Row(
     ),
   ],
 ),
+const SizedBox(height: 8),
 
 
 
@@ -305,7 +306,6 @@ final tasks = rawTasks;
                         ),
                       );
                     }
-
                     return ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),

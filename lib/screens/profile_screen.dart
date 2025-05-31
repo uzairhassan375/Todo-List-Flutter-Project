@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:taskify/widgets/buildNavItem.dart';
+import 'package:taskify/widgets/custom_bottom_nav_bar.dart';
 import 'add_task_sheet.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -14,7 +15,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>  {
   String? _profileImageBase64;
   String? _userName;
   int _incompleteCount = 0;
@@ -196,20 +197,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        color: const Color(0xFF2E2E2E),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            buildNavItem(context, Icons.home, 'Index', '/homescreen'),
-            buildNavItem(context, Icons.calendar_today, 'Calendar', '/calendar'),
-            const SizedBox(width: 40),
-            buildNavItem(context, Icons.timelapse, 'Focus', '/focus'),
-            buildNavItem(context, Icons.person, 'Profile', '/profilescreen'),
-          ],
-        ),
-      ),
+bottomNavigationBar: const CustomBottomNavBar(),
+
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),

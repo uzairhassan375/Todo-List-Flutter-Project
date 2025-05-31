@@ -58,7 +58,7 @@ class _SharedTodoScreenState extends State<SharedTodoScreen> with SingleTickerPr
                     builder: (_) => SharedToDoListScreen(
                       groupId: group.id,
                       groupName: groupData['name'],
-                        currentUserId: currentUserId,
+                        currentUserId: currentUserId, ownerEmail: '',
                     ),
                   ),
                 );

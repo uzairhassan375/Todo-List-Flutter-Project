@@ -24,6 +24,9 @@ dependencies:
   date_picker_timeline: ^1.2.3 # or the latest version
   table_calendar: ^3.0.9
   flutter_launcher_icons: ^0.14.3
+  do_not_disturb: ^1.0.3
+  android_intent_plus: ^4.0.3
+
 
 
 

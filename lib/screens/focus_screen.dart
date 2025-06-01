@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'package:do_not_disturb/do_not_disturb_plugin.dart';
+import 'package:do_not_disturb/types.dart';
 import 'package:flutter/material.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:taskify/widgets/custom_bottom_nav_bar.dart';
 import 'add_task_sheet.dart';
 
@@ -11,6 +14,7 @@ class FocusScreen extends StatefulWidget {
 }
 
 class _FocusScreenState extends State<FocusScreen> {
+  final dndPlugin = DoNotDisturbPlugin();
   Duration _focusDuration = const Duration(minutes: 0);
   Duration _originalDuration = const Duration(minutes: 0);
   Timer? _timer;
@@ -22,60 +26,125 @@ class _FocusScreenState extends State<FocusScreen> {
     super.dispose();
   }
 
-  void _startButtonPressed() {
+  // Manually open the DND permission settings using android_intent_plus
+  Future<void> _openDndSettings() async {
+    try {
+      final intent = AndroidIntent(
+        action: 'android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS',
+      );
+      await intent.launch();
+    } catch (e) {
+      print('Could not open DND settings: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open DND settings: $e')),
+      );
+    }
+  }
+
+  Future<void> _startButtonPressed() async {
     if (_focusDuration.inSeconds == 0) return;
 
     if (_isFocusing) {
       _stopFocusing();
-    } else {
-      setState(() {
-        _isFocusing = true;
-      });
-
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (_focusDuration.inSeconds == 0) {
-          timer.cancel();
-          _stopFocusing();
-          return;
-        }
-        setState(() {
-          _focusDuration -= const Duration(seconds: 1);
-        });
-      });
+      return;
     }
+
+    final hasAccess = await dndPlugin.isNotificationPolicyAccessGranted();
+
+    if (!hasAccess) {
+      await _openDndSettings();
+      // Show dialog to instruct user
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Permission Required'),
+          content: const Text(
+              'To enable Focus Mode, please grant "Do Not Disturb" access to this app in your device settings, then press Start again.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // If permission granted, enable DND and start timer
+    await dndPlugin.setInterruptionFilter(InterruptionFilter.none);
+
+    setState(() {
+      _isFocusing = true;
+    });
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_focusDuration.inSeconds == 0) {
+        timer.cancel();
+        _stopFocusing();
+        return;
+      }
+      setState(() {
+        _focusDuration -= const Duration(seconds: 1);
+      });
+    });
   }
 
-  void _stopFocusing() {
+  Future<void> _stopFocusing() async {
     _timer?.cancel();
     setState(() {
       _isFocusing = false;
       _focusDuration = _originalDuration;
     });
+
+    final hasAccess = await dndPlugin.isNotificationPolicyAccessGranted();
+    if (hasAccess) {
+      await dndPlugin.setInterruptionFilter(InterruptionFilter.all);
+    }
   }
 
-  void _pickTime() async {
+  Future<void> _pickTime() async {
     int? selectedMinutes = await showDialog<int>(
       context: context,
       builder: (context) {
         int minutes = 0;
         return AlertDialog(
-          title: const Text("Select Focus Time (in minutes)"),
+          backgroundColor: const Color(0xFF121212), // Dark black background
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text(
+            "Select Focus Time (in minutes)",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
           content: TextField(
             autofocus: true,
             keyboardType: TextInputType.number,
+            style: const TextStyle(color: Colors.white), // input text color
+            cursorColor: Colors.deepPurple.shade300,
+            decoration: InputDecoration(
+              hintText: "Enter minutes",
+              hintStyle: const TextStyle(color: Colors.white54),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.deepPurple.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    BorderSide(color: Colors.deepPurple.shade300, width: 2),
+              ),
+            ),
             onChanged: (value) {
               minutes = int.tryParse(value) ?? 0;
             },
-            decoration: const InputDecoration(hintText: "Enter minutes"),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(null),
-              child: const Text("Cancel"),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
             ),
-            ElevatedButton(
+            TextButton(
               onPressed: () => Navigator.of(context).pop(minutes),
-              child: const Text("Set"),
+              child: Text('Set', style: TextStyle(color: Colors.deepPurple.shade300)),
             ),
           ],
         );
@@ -118,10 +187,12 @@ class _FocusScreenState extends State<FocusScreen> {
                 const SizedBox(height: 24),
                 const Text(
                   'Focus Mode',
-                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 40),
-
                 GestureDetector(
                   onTap: !_isFocusing ? _pickTime : null,
                   child: SizedBox(
@@ -154,7 +225,6 @@ class _FocusScreenState extends State<FocusScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
                 const Text(
                   "While your focus mode is on, your timer will count down",
@@ -162,12 +232,12 @@ class _FocusScreenState extends State<FocusScreen> {
                   style: TextStyle(color: Colors.grey, fontSize: 14),
                 ),
                 const SizedBox(height: 24),
-
                 ElevatedButton(
                   onPressed: _startButtonPressed,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple.shade300,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -181,7 +251,7 @@ class _FocusScreenState extends State<FocusScreen> {
             ),
           ),
         ),
-        bottomNavigationBar: const CustomBottomNavBar(),
+        bottomNavigationBar: _isFocusing ? null : const CustomBottomNavBar(),
         floatingActionButton: _isFocusing
             ? null
             : FloatingActionButton(

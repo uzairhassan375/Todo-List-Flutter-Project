@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class CreateGroupScreen extends StatefulWidget {
   const CreateGroupScreen({super.key});
@@ -12,25 +13,38 @@ class CreateGroupScreen extends StatefulWidget {
 class _CreateGroupScreenState extends State<CreateGroupScreen> {
   final TextEditingController taskNameController = TextEditingController();
   final TextEditingController subtaskNameController = TextEditingController();
-  final TextEditingController subtaskPriorityController = TextEditingController();
+  final TextEditingController subtaskDescriptionController = TextEditingController();
   final TextEditingController subtaskDeadlineController = TextEditingController();
-  final TextEditingController memberController = TextEditingController();
 
   List<Map<String, dynamic>> subtasks = [];
-  List<String> invitedMembers = [];
 
   final currentUser = FirebaseAuth.instance.currentUser;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
   bool isSaving = false;
 
-  // Show Date & Time picker when clicking deadline field
+  void showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> pickDateTime() async {
     final date = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Colors.deepPurpleAccent,
+            onPrimary: Colors.white,
+            surface: Colors.black,
+            onSurface: Colors.white,
+          ),
+          dialogBackgroundColor: Colors.black,
+        ),
+        child: child!,
+      ),
     );
 
     if (date == null) return;
@@ -38,320 +52,322 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Colors.deepPurpleAccent,
+            onPrimary: Colors.white,
+            surface: Colors.black,
+            onSurface: Colors.white,
+          ),
+          dialogBackgroundColor: Colors.black,
+        ),
+        child: child!,
+      ),
     );
 
     if (time == null) return;
 
-    final dateTime = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-
-    subtaskDeadlineController.text = dateTime.toString();
+    final dateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final formatted = DateFormat('yyyy-MM-dd HH:mm').format(dateTime);
+    subtaskDeadlineController.text = formatted;
   }
 
   void addSubtask() {
     final name = subtaskNameController.text.trim();
-    final priorityText = subtaskPriorityController.text.trim();
+    final description = subtaskDescriptionController.text.trim();
     final deadlineText = subtaskDeadlineController.text.trim();
 
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter subtask name')),
-      );
+      showSnack('Please enter subtask name');
       return;
-    }
-
-    int? priority;
-    if (priorityText.isNotEmpty) {
-      priority = int.tryParse(priorityText);
-      if (priority == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Priority must be a valid number')),
-        );
-        return;
-      }
     }
 
     DateTime? deadline;
     if (deadlineText.isNotEmpty) {
       try {
-        deadline = DateTime.parse(deadlineText);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Deadline format error')),
-        );
+        deadline = DateFormat('yyyy-MM-dd HH:mm').parse(deadlineText);
+      } catch (_) {
+        showSnack('Deadline format error');
         return;
       }
     }
 
-    final newSubtask = <String, dynamic>{'name': name};
-    if (priority != null) newSubtask['priority'] = priority;
+    final newSubtask = {
+      'title': name,
+      'description': description,
+    };
+
     if (deadline != null) newSubtask['deadline'] = deadline.toIso8601String();
 
     setState(() {
       subtasks.add(newSubtask);
       subtaskNameController.clear();
-      subtaskPriorityController.clear();
+      subtaskDescriptionController.clear();
       subtaskDeadlineController.clear();
     });
   }
 
-  Future<void> addMember() async {
-    final member = memberController.text.trim();
-    if (member.isEmpty) return;
-
-    final querySnapshot = await firestore.collection('users').where('email', isEqualTo: member).get();
-
-    if (querySnapshot.docs.isEmpty) {
-      final usernameQuery = await firestore.collection('users').where('username', isEqualTo: member).get();
-
-      if (usernameQuery.docs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('User "$member" not found')),
-        );
-        return;
-      }
-    }
-
-    if (invitedMembers.contains(member)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('User "$member" is already invited')),
-      );
-      return;
-    }
-
-    setState(() {
-      invitedMembers.add(member);
-      memberController.clear();
-    });
+Future<void> saveGroup() async {
+  final groupName = taskNameController.text.trim();
+  if (groupName.isEmpty) {
+    showSnack('Please enter group name');
+    return;
   }
 
-  Future<void> saveGroup() async {
-    final groupName = taskNameController.text.trim();
-    if (groupName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter group name')),
-      );
-      return;
-    }
+  if (subtasks.isEmpty) {
+    showSnack('Add at least one subtask');
+    return;
+  }
 
-    if (subtasks.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one subtask')),
-      );
-      return;
-    }
+  setState(() {
+    isSaving = true;
+  });
 
-    setState(() {
-      isSaving = true;
+  try {
+    final memberUids = [currentUser!.uid];
+
+    // Step 1: Create the group document (without subtasks)
+    final groupRef = await firestore.collection('groups').add({
+      'name': groupName,
+      'ownerId': currentUser!.uid,
+      'ownerEmail': currentUser?.email ?? '',
+      'members': memberUids,
+      'createdAt': FieldValue.serverTimestamp(),
     });
 
-    try {
-      List<String> memberUids = [];
+    // Step 2: Save each subtask in the "tasks" subcollection of this group
+    final tasksRef = groupRef.collection('tasks');
+    for (final subtask in subtasks) {
+      await tasksRef.add({
+        'title': subtask['title'],
+        'description': subtask['description'],
+        'deadline': subtask['deadline'] != null
+    ? Timestamp.fromDate(DateTime.parse(subtask['deadline']))
+    : null,
 
-      for (String member in invitedMembers) {
-        QuerySnapshot userQuery = await firestore.collection('users').where('email', isEqualTo: member).get();
-
-        if (userQuery.docs.isEmpty) {
-          userQuery = await firestore.collection('users').where('username', isEqualTo: member).get();
-        }
-
-        if (userQuery.docs.isNotEmpty) {
-          memberUids.add(userQuery.docs.first.id);
-        }
-      }
-
-      await firestore.collection('groups').add({
-        'name': groupName,
-        'ownerId': currentUser!.uid,
-        'ownerEmail': currentUser?.email ?? '',
-        'members': memberUids,
-        'subtasks': subtasks,
+        'isCompleted': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Group created successfully')),
-      );
-
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating group: $e')),
-      );
-    } finally {
-      setState(() {
-        isSaving = false;
-      });
     }
+
+    showSnack('Group and tasks created successfully');
+    Navigator.pop(context);
+  } catch (e) {
+    showSnack('Error creating group: $e');
+  } finally {
+    setState(() {
+      isSaving = false;
+    });
   }
+}
+
 
   @override
   void dispose() {
     taskNameController.dispose();
     subtaskNameController.dispose();
-    subtaskPriorityController.dispose();
+    subtaskDescriptionController.dispose();
     subtaskDeadlineController.dispose();
-    memberController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final whiteTextStyle = const TextStyle(color: Colors.white);
+
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Create Group'),
+        title: const Text('Create Group', style: TextStyle(color: Colors.white)),
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 16),
             child: Icon(Icons.groups, color: Colors.orange),
           ),
         ],
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Group Name'),
+            Text('Group Name', style: whiteTextStyle),
             const SizedBox(height: 8),
             TextField(
               controller: taskNameController,
+              style: whiteTextStyle,
               decoration: const InputDecoration(
-                hintText: 'Lab Assignments',
+                hintText: 'Enter Group Name',
+                hintStyle: TextStyle(color: Colors.white54),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white54),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.deepPurpleAccent),
+                ),
               ),
+              cursorColor: Colors.deepPurpleAccent,
             ),
             const SizedBox(height: 20),
-            const Text('Add Subtasks'),
+
+            Text('Add Subtasks', style: whiteTextStyle),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
-                  flex: 4,
+                  flex: 3,
                   child: TextField(
                     controller: subtaskNameController,
+                    style: whiteTextStyle,
                     decoration: const InputDecoration(
-                      hintText: 'Subtask Name *',
+                      hintText: 'Title',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white54),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.deepPurpleAccent),
+                      ),
                     ),
+                    cursorColor: Colors.deepPurpleAccent,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  flex: 2,
+                  flex: 4,
                   child: TextField(
-                    controller: subtaskPriorityController,
-                    keyboardType: TextInputType.number,
+                    controller: subtaskDescriptionController,
+                    style: whiteTextStyle,
                     decoration: const InputDecoration(
-                      hintText: 'Priority (optional)',
+                      hintText: 'Description',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white54),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.deepPurpleAccent),
+                      ),
                     ),
+                    cursorColor: Colors.deepPurpleAccent,
                   ),
                 ),
-                const SizedBox(width: 8),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 Expanded(
                   flex: 3,
                   child: TextField(
                     controller: subtaskDeadlineController,
                     readOnly: true,
                     onTap: pickDateTime,
+                    style: whiteTextStyle,
                     decoration: const InputDecoration(
-                      hintText: 'Deadline (optional)',
+                      hintText: 'Deadline',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white54),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.deepPurpleAccent),
+                      ),
                     ),
+                    cursorColor: Colors.deepPurpleAccent,
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurpleAccent,
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent),
                   onPressed: addSubtask,
-                  child: const Text('Add'),
+                  child: const Text(
+                    'Add',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Expanded(
               child: subtasks.isEmpty
-                  ? const Center(child: Text('No subtasks added yet'))
-                  : ListView.builder(
+                  ? Center(child: Text('No subtasks added yet', style: whiteTextStyle))
+                  : ListView.separated(
                       itemCount: subtasks.length,
+                      separatorBuilder: (context, index) => const Divider(color: Colors.white24),
                       itemBuilder: (context, index) {
                         final subtask = subtasks[index];
-                        return ListTile(
-                          title: Text(subtask['name']),
-                          subtitle: Text(
-                            'Priority: ${subtask['priority'] ?? 'N/A'}, Deadline: ${subtask['deadline'] ?? 'N/A'}',
-                            style: const TextStyle(fontSize: 12),
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[850],
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          leading: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              setState(() {
-                                subtasks.removeAt(index);
-                              });
-                            },
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                     subtask['title'],
+
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    if ((subtask['description'] ?? '').isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          subtask['description'],
+                                          style: const TextStyle(color: Colors.white70),
+                                        ),
+                                      ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Text(
+                                        'Deadline: ${subtask['deadline'] != null ? DateFormat('MMM d, yyyy – h:mm a').format(DateTime.parse(subtask['deadline'])) : 'N/A'}',
+                                        style: const TextStyle(color: Colors.white60, fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                onPressed: () {
+                                  setState(() {
+                                    subtasks.removeAt(index);
+                                  });
+                                },
+                              ),
+                            ],
                           ),
                         );
                       },
                     ),
             ),
             const SizedBox(height: 10),
-            const Text('Invite Members (email or username)'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: memberController,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter username or email',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurpleAccent,
-                  ),
-                  onPressed: addMember,
-                  child: const Text('Add'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: invitedMembers.map((member) {
-                return Chip(
-                  label: Text(member),
-                  onDeleted: () {
-                    setState(() {
-                      invitedMembers.remove(member);
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
             Center(
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurpleAccent,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: isSaving ? null : saveGroup,
-                  child: isSaving
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
-                      : const Text('Save'),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurpleAccent,
+                  minimumSize: const Size(double.infinity, 50),
                 ),
+                onPressed: isSaving ? null : saveGroup,
+                child: isSaving
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        'Create Group',
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
               ),
             ),
           ],

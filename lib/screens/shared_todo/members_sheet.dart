@@ -245,7 +245,8 @@ class _MembersSheetState extends State<MembersSheet> {
                   : FutureBuilder<QuerySnapshot>(
                       future: FirebaseFirestore.instance
                           .collection('users')
-                          .where(FieldPath.documentId, whereIn: _members)
+                         .where(FieldPath.documentId, whereIn: _members.where((id) => id != widget.ownerId).toList())
+
                           .get(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const CircularProgressIndicator();

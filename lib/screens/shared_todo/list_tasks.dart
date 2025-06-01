@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -340,7 +342,8 @@ Future<void> _addComment(String text) async {
             const SizedBox(height: 10),
 
             // Add Task Button for owner only
-            if (isOwner)
+            if (isOwner || isMember)
+
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -412,14 +415,13 @@ return Padding(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       CircleAvatar(
-        backgroundImage:
-            userPhoto.isNotEmpty ? NetworkImage(userPhoto) : null,
-        backgroundColor: Colors.grey[700],
-        radius: 16,
-        child: userPhoto.isEmpty
-            ? const Icon(Icons.person, color: Colors.white)
-            : null,
-      ),
+  backgroundImage: userPhoto.isNotEmpty
+      ? MemoryImage(base64Decode(userPhoto))
+      : null,
+  backgroundColor: Colors.grey[700],
+  radius: 16,
+  child: userPhoto.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
+),
       const SizedBox(width: 10),
       Expanded(
         child: Container(

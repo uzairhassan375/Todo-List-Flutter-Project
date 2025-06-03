@@ -181,12 +181,7 @@ Future<void> saveGroup() async {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: const Text('Create Group', style: TextStyle(color: Colors.white)),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.groups, color: Colors.orange),
-          ),
-        ],
+       
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(

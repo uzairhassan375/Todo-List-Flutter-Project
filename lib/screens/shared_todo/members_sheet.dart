@@ -238,16 +238,21 @@ class _MembersSheetState extends State<MembersSheet> {
                       ),
             const Divider(height: 30, color: Colors.white24),
             Expanded(
-              child: _members.isEmpty
-                  ? const Center(
-                      child: Text('No members found',
-                          style: TextStyle(color: Colors.white70)))
-                  : FutureBuilder<QuerySnapshot>(
-                      future: FirebaseFirestore.instance
-                          .collection('users')
-                         .where(FieldPath.documentId, whereIn: _members.where((id) => id != widget.ownerId).toList())
+  child: _members.where((id) => id != widget.ownerId).isEmpty
+      ? const Center(
+          child: Text('No members found',
+              style: TextStyle(color: Colors.white70)))
+      : FutureBuilder<QuerySnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .where(
+                FieldPath.documentId,
+                whereIn: _members
+                    .where((id) => id != widget.ownerId)
+                    .toList(),
+              )
+              .get(),
 
-                          .get(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const CircularProgressIndicator();
                         final docs = snapshot.data!.docs;

@@ -22,9 +22,25 @@ class _SharedTodoScreenState extends State<SharedTodoScreen> with SingleTickerPr
     _tabController = TabController(length: 2, vsync: this);
   }
 
-  Future<void> _deleteGroup(String groupId) async {
-    await FirebaseFirestore.instance.collection('groups').doc(groupId).delete();
+Future<void> _deleteGroup(String groupId) async {
+  final groupRef = FirebaseFirestore.instance.collection('groups').doc(groupId);
+
+  // Delete all tasks in the tasks subcollection
+  final tasksSnapshot = await groupRef.collection('tasks').get();
+  for (var taskDoc in tasksSnapshot.docs) {
+    await taskDoc.reference.delete();
   }
+
+  // Delete all comments in the comments subcollection
+  final commentsSnapshot = await groupRef.collection('comments').get();
+  for (var commentDoc in commentsSnapshot.docs) {
+    await commentDoc.reference.delete();
+  }
+
+  // Finally, delete the group document itself
+  await groupRef.delete();
+}
+
 
   Future<void> _leaveGroup(String groupId) async {
     final groupRef = FirebaseFirestore.instance.collection('groups').doc(groupId);

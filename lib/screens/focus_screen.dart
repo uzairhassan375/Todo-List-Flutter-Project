@@ -72,7 +72,7 @@ class _FocusScreenState extends State<FocusScreen> {
     }
 
     // If permission granted, enable DND and start timer
-    await dndPlugin.setInterruptionFilter(InterruptionFilter.none);
+    await dndPlugin.setInterruptionFilter(InterruptionFilter.priority);
 
     setState(() {
       _isFocusing = true;

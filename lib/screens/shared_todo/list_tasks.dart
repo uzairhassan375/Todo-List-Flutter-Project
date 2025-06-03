@@ -168,7 +168,8 @@ void _showAddTaskDialog() {
                   .add({
                 'title': titleController.text.trim(),
                 'description': descriptionController.text.trim(),
-                'deadline': selectedDeadline?.toIso8601String(),
+                'deadline': selectedDeadline != null ? Timestamp.fromDate(selectedDeadline!) : null,
+
 'createdBy': FirebaseAuth.instance.currentUser?.uid,
 
                 'createdAt': Timestamp.now(),

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:taskify/services/auth.dart';
+import 'package:taskify/services/noti_services.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -47,7 +48,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (user != null) {
         print('Login successful');
+        NotiService().showNotification(title: 'Login successful',body: 'Notification displayed');
         Navigator.pushReplacementNamed(context, '/homescreen');
+
       } else {
         setState(() {
           _passwordError = 'Email or password is incorrect';

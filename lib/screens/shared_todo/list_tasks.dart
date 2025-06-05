@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:taskify/services/pdf_firestore_helper.dart';
+import 'package:taskify/services/pdf_list_screen.dart';
 import 'members_sheet.dart';
 import 'package:intl/intl.dart';
 
@@ -35,6 +38,27 @@ class _SharedToDoListScreenState extends State<SharedToDoListScreen> {
     super.initState();
     _loadGroupData();
   }
+Future<bool> _requestStoragePermission() async {
+  var status = await Permission.storage.status;
+  if (!status.isGranted) {
+    status = await Permission.storage.request();
+  }
+  return status.isGranted;
+}
+void _handlePdfSave() async {
+  bool success = await PdfFirestoreHelper.pickAndSavePdfToFirestore(widget.groupId);
+  if (success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF saved to group successfully!')),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to save PDF')),
+    );
+  }
+}
+
+
 
   Future<void> _loadGroupData() async {
     final doc = await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).get();
@@ -186,18 +210,6 @@ void _showAddTaskDialog() {
 }
 
 
-  Future<String?> _getUserPhotoUrl(String userId) async {
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-    if (userDoc.exists) {
-      return userDoc.data()?['photoUrl'] as String?;
-    }
-    return null;
-  }
-
-  Future<String?> _getCurrentUserPhotoUrl() async {
-    return _getUserPhotoUrl(widget.currentUserId);
-  }
-
 Future<void> _addComment(String text) async {
   if (text.trim().isEmpty) return;
 
@@ -262,6 +274,7 @@ Future<void> _addComment(String text) async {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
+         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(widget.groupName, style: const TextStyle(color: Colors.white)),
         actions: [
           IconButton(
@@ -328,9 +341,37 @@ Future<void> _addComment(String text) async {
                           ),
                           trailing: isOwner
                               ? IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                  onPressed: () => _deleteTask(task.id),
-                                )
+  icon: const Icon(Icons.delete_forever, color: Colors.redAccent),
+  tooltip: 'Delete Task',
+  onPressed: () async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text('Confirm Delete', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Are you sure you want to delete the task?',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _deleteTask(task.id); // Make sure this handles groupId if needed
+    }
+  },
+)
+
                               : null,
                         ),
                       );
@@ -343,19 +384,57 @@ Future<void> _addComment(String text) async {
             const SizedBox(height: 10),
 
             // Add Task Button for owner only
-            if (isOwner || isMember)
+if (isOwner || isMember)
+  SizedBox(
+    width: double.infinity,
+    child: OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: const BorderSide(color: Colors.white),
+      ),
+      onPressed: _showAddTaskDialog,
+      child: const Text('+ Add Task'),
+    ),
+  ),
 
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white),
-                  ),
-                  onPressed: _showAddTaskDialog,
-                  child: const Text('+ Add Task'),
-                ),
-              ),
+  if(isOwner)
+  SizedBox(
+    width: double.infinity,
+    child: ElevatedButton.icon(
+      icon: const Icon(Icons.picture_as_pdf),
+      label: const Text('Upload PDF'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color.fromARGB(255, 0, 0, 0), // Optional styling
+        foregroundColor: Colors.white,
+         side: const BorderSide(color: Colors.white, width: 1),
+      ),
+      onPressed: _handlePdfSave,
+    ),
+  ),
+  
+SizedBox(
+  width: double.infinity, // Ensures full width
+  child: ElevatedButton.icon(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PDFListScreen(groupId: widget.groupId),
+        ),
+      );
+    },
+    icon: const Icon(Icons.picture_as_pdf),
+    label: const Text('View PDFs'),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+      foregroundColor: Colors.white,
+      side: const BorderSide(color: Colors.white, width: 1),
+    ),
+  ),
+),
+
+
+
 
             const SizedBox(height: 20),
 
@@ -411,78 +490,178 @@ final commentUserId = commentData['userId'] ?? '';
 final canDelete = isOwner || widget.currentUserId == commentUserId;
 
 return Padding(
-  padding: const EdgeInsets.symmetric(vertical: 6),
-  child: Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      CircleAvatar(
-  backgroundImage: userPhoto.isNotEmpty
-      ? MemoryImage(base64Decode(userPhoto))
-      : null,
-  backgroundColor: Colors.grey[700],
-  radius: 16,
-  child: userPhoto.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
-),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[850],
-            borderRadius: BorderRadius.circular(10),
+  padding: const EdgeInsets.symmetric(vertical: 0),
+  child: GestureDetector(
+    onLongPress: () async {
+      if (widget.currentUserId == commentUserId) {
+        // Show edit dialog
+        final TextEditingController editController = TextEditingController(text: text);
+        final edited = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: Colors.grey[900],
+            title: const Text('Edit Comment', style: TextStyle(color: Colors.white)),
+            content: TextField(
+              controller: editController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Edit your comment',
+                hintStyle: TextStyle(color: Colors.white54),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, editController.text.trim()),
+                child: const Text('Save', style: TextStyle(color: Colors.deepPurpleAccent)),
+              ),
+            ],
           ),
-          child: Column(
+        );
+        if (edited != null && edited.isNotEmpty && edited != text) {
+          await FirebaseFirestore.instance
+              .collection('groups')
+              .doc(widget.groupId)
+              .collection('comments')
+              .doc(commentId)
+              .update({'text': edited});
+        }
+      }
+    },
+child: Padding(
+  padding: const EdgeInsets.symmetric(vertical: 6),
+  child: Stack(
+    clipBehavior: Clip.none,
+    children: [
+      Align(
+        alignment: widget.currentUserId == commentUserId
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
+        child: Container(
+          margin: widget.currentUserId == commentUserId
+              ? const EdgeInsets.only(right: 40)
+              : const EdgeInsets.only(left: 40),
+          decoration: BoxDecoration(
+            color: widget.currentUserId == commentUserId
+                ? const Color.fromARGB(255, 22, 73, 41) // WhatsApp green for current user
+                : Colors.grey[850],       // Dark grey for others
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(12),
+              topRight: const Radius.circular(12),
+              bottomLeft: widget.currentUserId == commentUserId
+                  ? const Radius.circular(12)
+                  : const Radius.circular(0),
+              bottomRight: widget.currentUserId == commentUserId
+                  ? const Radius.circular(0)
+                  : const Radius.circular(12),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                offset: const Offset(0, 1),
+                blurRadius: 3,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(10),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(userName,
-                  style: const TextStyle(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(text, style: const TextStyle(color: Colors.white)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+  userName,
+  style: const TextStyle(
+    color: Colors.orange,
+    fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(text, style: const TextStyle(color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text(
+                      commentData['timestamp'] != null
+                          ? DateFormat('hh:mm a, d MMM').format(
+                              (commentData['timestamp'] as Timestamp).toDate())
+                          : '',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.currentUserId == commentUserId) // only show delete for current user
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0, top: 2.0),
+                  child: IconButton(
+                    icon: const Icon(Icons.delete_forever, color: Colors.redAccent, size: 20),
+                    tooltip: 'Delete Comment',
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          backgroundColor: Colors.black,
+                          title: const Text('Delete Comment?', style: TextStyle(color: Colors.white)),
+                          content: const Text('Are you sure you want to delete this comment?', style: TextStyle(color: Colors.white70)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await FirebaseFirestore.instance
+                            .collection('groups')
+                            .doc(widget.groupId)
+                            .collection('comments')
+                            .doc(commentId)
+                            .delete();
+                      }
+                    },
+                  ),
+                ),
             ],
           ),
         ),
       ),
-
-      // Delete button if allowed
-      if (canDelete)
-        IconButton(
-          icon: const Icon(Icons.delete, color: Colors.redAccent),
-          onPressed: () async {
-            // Confirm delete
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: Colors.black,
-                title: const Text('Delete Comment?', style: TextStyle(color: Colors.white)),
-                content: const Text('Are you sure you want to delete this comment?', style: TextStyle(color: Colors.white70)),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
-                  ),
-                ],
-              ),
-            );
-
-            if (confirm == true) {
-              await FirebaseFirestore.instance
-                  .collection('groups')
-                  .doc(widget.groupId)
-                  .collection('comments')
-                  .doc(commentId)
-                  .delete();
-            }
-          },
+      Positioned(
+        top: 6,
+        left: widget.currentUserId == commentUserId ? null : 0,
+        right: widget.currentUserId == commentUserId ? 0 : null,
+        child: CircleAvatar(
+          backgroundImage: userPhoto.isNotEmpty
+              ? MemoryImage(base64Decode(userPhoto))
+              : null,
+          backgroundColor: Colors.grey[700],
+          radius: 16,
+          child: userPhoto.isEmpty
+              ? const Icon(Icons.person, color: Colors.white, size: 18)
+              : null,
         ),
+      ),
     ],
   ),
+),
+
+
+  ),
 );
+
 
                     },
                   );
@@ -495,19 +674,6 @@ return Padding(
             // Add Comment Input
             Row(
               children: [
-                FutureBuilder<String?>(
-                  future: _getCurrentUserPhotoUrl(),
-                  builder: (context, snapshot) {
-                    final photoUrl = snapshot.data ?? '';
-                    return CircleAvatar(
-                      backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                      backgroundColor: Colors.grey[700],
-                      radius: 18,
-                      child: photoUrl.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
-                    );
-                  },
-                ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
                     controller: commentController,

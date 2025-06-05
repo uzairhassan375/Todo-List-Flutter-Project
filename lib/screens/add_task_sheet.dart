@@ -223,8 +223,12 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
       }
       // Show snackbar after success:
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(widget.taskId != null ? 'Task updated' : 'Task added')),
-    );
+  SnackBar(
+    content: Text(widget.taskId != null ? 'Task updated' : 'Task added'),
+    duration: const Duration(seconds: 1), // Reduced duration
+  ),
+);
+
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));

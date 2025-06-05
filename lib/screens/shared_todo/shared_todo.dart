@@ -21,6 +21,50 @@ class _SharedTodoScreenState extends State<SharedTodoScreen> with SingleTickerPr
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
   }
+void _showEditGroupDialog(String groupId, String currentName) {
+  final _controller = TextEditingController(text: currentName);
+
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: Colors.grey[900],
+      title: const Text('Edit Group Name', style: TextStyle(color: Colors.white)),
+      content: TextField(
+        controller: _controller,
+        style: const TextStyle(color: Colors.white),
+        decoration: const InputDecoration(
+          labelText: 'Group Name',
+          labelStyle: TextStyle(color: Colors.white70),
+          enabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.white54),
+          ),
+          focusedBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.orangeAccent),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+        ),
+        TextButton(
+          onPressed: () async {
+            final newName = _controller.text.trim();
+            if (newName.isNotEmpty && newName != currentName) {
+              await FirebaseFirestore.instance
+                  .collection('groups')
+                  .doc(groupId)
+                  .update({'name': newName});
+            }
+            Navigator.pop(context);
+          },
+          child: const Text('Save', style: TextStyle(color: Colors.orangeAccent)),
+        ),
+      ],
+    ),
+  );
+}
 
 Future<void> _deleteGroup(String groupId) async {
   final groupRef = FirebaseFirestore.instance.collection('groups').doc(groupId);
@@ -88,22 +132,30 @@ Future<void> _deleteGroup(String groupId) async {
                 groupName,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SharedToDoListScreen(
-                      groupId: group.id,
-                      groupName: groupName,
-                      currentUserId: currentUserId,
-                      ownerEmail: groupData['ownerEmail'] ?? '',
-                    ),
-                  ),
-                );
-              },
+onTap: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SharedToDoListScreen(
+        groupId: group.id,
+        groupName: groupName,
+        currentUserId: currentUserId,
+        ownerEmail: groupData['ownerEmail'] ?? '',
+      ),
+    ),
+  );
+},
+onLongPress: () {
+  if (isOwnerTab) {
+    _showEditGroupDialog(group.id, groupName);
+  }
+},
+
+
               trailing: isOwnerTab
                   ? IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                      icon: const Icon(Icons.delete_forever, color: Colors.redAccent),
+
                       tooltip: 'Delete Group',
                       onPressed: () async {
                         final confirm = await showDialog<bool>(

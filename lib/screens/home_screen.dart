@@ -258,56 +258,64 @@ StreamBuilder<QuerySnapshot>(
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ChoiceChip(
-              label: const Text('DateTime'),
-              selected: _sortBy == 'datetime',
-              onSelected: (_) {
-                setState(() {
-                  _sortBy = 'datetime';
-                  _categoryFilter = null;
-                });
-              },
-              selectedColor: Colors.deepPurple,
-              backgroundColor: Colors.grey,
-              checkmarkColor: Colors.white,
-              labelStyle: const TextStyle(color: Colors.white),
-            ),
-            ChoiceChip(
-              label: const Text('Priority'),
-              selected: _sortBy == 'priority',
-              onSelected: (_) {
-                setState(() {
-                  _sortBy = 'priority';
-                  _categoryFilter = null;
-                });
-              },
-              selectedColor: Colors.deepPurple,
-              backgroundColor: Colors.grey,
-              checkmarkColor: Colors.white,
-              labelStyle: const TextStyle(color: Colors.white),
-            ),
-            ChoiceChip(
-              label: const Text('Category'),
-              selected: _sortBy == 'category',
-              onSelected: (_) async {
-                final selectedCategory = await _showCategoryDialog();
-                if (selectedCategory != null) {
-                  setState(() {
-                    _sortBy = 'category';
-                    _categoryFilter = selectedCategory;
-                  });
-                }
-              },
-              selectedColor: Colors.deepPurple,
-              backgroundColor: Colors.grey,
-              checkmarkColor: Colors.white,
-              labelStyle: const TextStyle(color: Colors.white),
-            ),
-          ],
-        ),
+Row(
+  children: [
+    Expanded(
+      child: ChoiceChip(
+        label: const Text('DateTime'),
+        selected: _sortBy == 'datetime',
+        onSelected: (_) {
+          setState(() {
+            _sortBy = 'datetime';
+            _categoryFilter = null;
+          });
+        },
+        selectedColor: Colors.deepPurple,
+        backgroundColor: Colors.grey,
+        checkmarkColor: Colors.white,
+        labelStyle: const TextStyle(color: Colors.white),
+      ),
+    ),
+    const SizedBox(width: 8),
+    Expanded(
+      child: ChoiceChip(
+        label: const Text('Priority'),
+        selected: _sortBy == 'priority',
+        onSelected: (_) {
+          setState(() {
+            _sortBy = 'priority';
+            _categoryFilter = null;
+          });
+        },
+        selectedColor: Colors.deepPurple,
+        backgroundColor: Colors.grey,
+        checkmarkColor: Colors.white,
+        labelStyle: const TextStyle(color: Colors.white),
+      ),
+    ),
+    const SizedBox(width: 8),
+    Expanded(
+      child: ChoiceChip(
+        label: const Text('Category'),
+        selected: _sortBy == 'category',
+        onSelected: (_) async {
+          final selectedCategory = await _showCategoryDialog();
+          if (selectedCategory != null) {
+            setState(() {
+              _sortBy = 'category';
+              _categoryFilter = selectedCategory;
+            });
+          }
+        },
+        selectedColor: Colors.deepPurple,
+        backgroundColor: Colors.grey,
+        checkmarkColor: Colors.white,
+        labelStyle: const TextStyle(color: Colors.white),
+      ),
+    ),
+  ],
+),
+
         const SizedBox(height: 8),
         ListView.builder(
           shrinkWrap: true,
